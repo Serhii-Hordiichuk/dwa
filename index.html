@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8">
-  <title>P2P Месенджер на PeerJS</title>
+  <title>P2P Месенджер з QR-кодом (PeerJS)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { background: #222; color: #fff; font-family: Arial, sans-serif; margin: 0; padding: 0; }
@@ -18,6 +18,9 @@
     #message { width: 75%; padding: 7px; border-radius: 5px; border: none; }
     #send { width: 22%; padding: 8px; border-radius: 5px; border: none; background: #3a8; color: #fff; font-weight: bold; cursor: pointer; }
     #status { font-size: 0.95em; color: #8fd; margin-bottom: 10px; text-align: center; }
+    #qrcode { margin: 0 auto 15px auto; display: flex; justify-content: center; }
+    #scan-btn { padding: 8px 12px; border-radius: 5px; border: none; background: #3a8; color: #fff; font-weight: bold; cursor: pointer; margin-bottom:10px; }
+    #video-preview { display:none; width:100%; max-width:300px; margin:10px auto; border-radius:10px; }
     @media (max-width: 500px) {
       .container { max-width: 98vw; padding: 6vw 2vw; }
       #chat { height: 40vw; min-height: 120px; }
@@ -28,6 +31,9 @@
   <div class="container">
     <h2>P2P Месенджер</h2>
     <input id="my-id" readonly value="Отримую ваш Peer ID...">
+    <div id="qrcode"></div>
+    <button id="scan-btn">Сканувати QR співрозмовника</button>
+    <video id="video-preview" autoplay></video>
     <div style="margin-bottom:10px;">
       <input id="remote-id" placeholder="ID співрозмовника">
       <button id="connect">Зʼєднатись</button>
@@ -40,6 +46,9 @@
     </div>
   </div>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- jsQR для сканування QR-кодів з відео -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script>
     const myIdInput = document.getElementById('my-id');
     const remoteIdInput = document.getElementById('remote-id');
@@ -48,8 +57,14 @@
     const chat = document.getElementById('chat');
     const msgInput = document.getElementById('message');
     const sendBtn = document.getElementById('send');
+    const qrcodeDiv = document.getElementById('qrcode');
+    const scanBtn = document.getElementById('scan-btn');
+    const videoPreview = document.getElementById('video-preview');
     let conn = null;
     let peer = null;
+    let qr = null;
+    let scanning = false;
+    let localStream = null;
 
     function addMsg(text, cls) {
       const div = document.createElement('div');
@@ -69,14 +84,23 @@
       setStatus('Очікування зʼєднання...');
     }
 
-    // 1. Створюємо Peer
+    // PeerJS ініціалізація
     peer = new Peer(undefined, { debug: 2 });
     peer.on('open', id => {
       myIdInput.value = id;
       setStatus('Ваш Peer ID: ' + id, '#8fd');
+      // Генеруємо QR-код
+      if (qr) qrcodeDiv.innerHTML = '';
+      qr = new QRCode(qrcodeDiv, {
+        text: id,
+        width: 180,
+        height: 180,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+      });
     });
 
-    // 2. Приймаємо вхідне зʼєднання
     peer.on('connection', c => {
       if (conn) { c.close(); return; }
       conn = c;
@@ -84,7 +108,6 @@
       setupConn();
     });
 
-    // 3. Кнопка "Зʼєднатись"
     connectBtn.onclick = () => {
       if (conn) conn.close();
       resetChat();
@@ -93,7 +116,6 @@
       setupConn();
     };
 
-    // 4. Надсилання повідомлення
     sendBtn.onclick = sendMsg;
     msgInput.onkeydown = e => { if (e.key === 'Enter') sendMsg(); };
 
@@ -123,6 +145,55 @@
       conn.on('error', err => {
         setStatus('Помилка: ' + err, 'red');
       });
+    }
+
+    // --- QR-сканер ---
+    scanBtn.onclick = async () => {
+      if (scanning) return;
+      scanning = true;
+      scanBtn.disabled = true;
+      setStatus('Відкриття камери для сканування QR...', '#8fd');
+      videoPreview.style.display = 'block';
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        videoPreview.srcObject = localStream;
+        requestAnimationFrame(tick);
+      } catch (e) {
+        setStatus('Не вдалося отримати доступ до камери', 'red');
+        videoPreview.style.display = 'none';
+        scanBtn.disabled = false;
+        scanning = false;
+      }
+    };
+
+    function tick() {
+      if (!scanning) return;
+      if (videoPreview.readyState === videoPreview.HAVE_ENOUGH_DATA) {
+        const canvas = document.createElement('canvas');
+        canvas.width = videoPreview.videoWidth;
+        canvas.height = videoPreview.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, canvas.width, canvas.height);
+        if (code) {
+          remoteIdInput.value = code.data;
+          setStatus('Peer ID знайдено: ' + code.data, '#8fd');
+          stopScan();
+          return;
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    function stopScan() {
+      scanning = false;
+      scanBtn.disabled = false;
+      videoPreview.style.display = 'none';
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
     }
   </script>
 </body>
