@@ -2,51 +2,84 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8">
-  <title>Клон Telegraph P2P</title>
+  <title>P2P Відео-рулетка</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 0; }
-    .center { max-width: 600px; margin: 40px auto; padding: 24px; border-radius: 12px; background: #fafafa; }
-    button { padding: 10px 20px; margin-top: 20px; }
-    .hidden { display: none; }
-    textarea, input { width: 100%; margin: 8px 0; }
+    body { margin:0; font-family:sans-serif; background:#181818; color:#fff; }
+    .center { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; }
+    .videos { display:flex; flex-direction:column; gap:10px; width:100%; max-width:400px; }
+    video { width:100%; border-radius:10px; background:#333; }
+    button { padding:10px 20px; margin:20px 0; border:none; border-radius:6px; background:#00c896; color:#fff; font-size:1.1em; cursor:pointer; }
+    .loader { width:48px; height:48px; border:6px solid #00c896; border-top:6px solid #fff; border-radius:50%; animation:spin 1s linear infinite; margin:24px auto; }
+    @keyframes spin { 100% { transform:rotate(360deg); } }
+    @media (max-width:600px) {
+      .videos { max-width:98vw; }
+    }
   </style>
 </head>
 <body>
-  <div id="main" class="center">
-    <h1>Клон Telegraph P2P</h1>
-    <p>На власну думку має право кожний.</p>
-    <p>Цей проект - простий редактор статей без серверів, з обміном через torrent.</p>
-    <button onclick="showEditor()">Перейти до проекту</button>
+<div class="center">
+  <h2>P2P Відео-рулетка</h2>
+  <div id="loader" class="loader"></div>
+  <div class="videos" style="display:none">
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
   </div>
-  <div id="editor" class="center hidden">
-    <input id="title" placeholder="Заголовок"><br>
-    <input id="author" placeholder="Автор"><br>
-    <textarea id="content" rows="10" placeholder="Текст"></textarea><br>
-    <button onclick="share()">Поділитися через torrent</button>
-    <div id="torrentLink"></div>
-    <button onclick="showMain()">Назад</button>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-  <script>
-    function showEditor() {
-      document.getElementById('main').classList.add('hidden');
-      document.getElementById('editor').classList.remove('hidden');
-    }
-    function showMain() {
-      document.getElementById('editor').classList.add('hidden');
-      document.getElementById('main').classList.remove('hidden');
-    }
-    function share() {
-      const title = document.getElementById('title').value;
-      const author = document.getElementById('author').value;
-      const content = document.getElementById('content').value;
-      const blob = new Blob([JSON.stringify({title, author, content})], {type: 'application/json'});
-      const client = new WebTorrent();
-      client.seed(blob, torrent => {
-        document.getElementById('torrentLink').innerHTML =
-          `<p>Магнет-посилання: <br><input value="${torrent.magnetURI}" readonly></p>`;
-      });
-    }
-  </script>
+  <button id="startBtn" style="display:none">Пошук співрозмовника</button>
+  <p id="info" style="margin-top:10px"></p>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script>
+const loader = document.getElementById('loader');
+const videos = document.querySelector('.videos');
+const localVideo = document.getElementById('localVideo');
+const remoteVideo = document.getElementById('remoteVideo');
+const startBtn = document.getElementById('startBtn');
+const info = document.getElementById('info');
+
+let peer, myStream, connPeerId = null, call;
+
+async function start() {
+  loader.style.display = '';
+  info.textContent = 'Підключення до мережі...';
+  myStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+  localVideo.srcObject = myStream;
+  peer = new Peer();
+  peer.on('open', id => {
+    loader.style.display = 'none';
+    startBtn.style.display = '';
+    info.textContent = 'Готово! Натисніть, щоб знайти співрозмовника.';
+  });
+  peer.on('call', incomingCall => {
+    call = incomingCall;
+    call.answer(myStream);
+    call.on('stream', stream => remoteVideo.srcObject = stream);
+    videos.style.display = '';
+    loader.style.display = 'none';
+    info.textContent = 'З’єднано!';
+  });
+}
+
+startBtn.onclick = async () => {
+  startBtn.style.display = 'none';
+  loader.style.display = '';
+  info.textContent = 'Пошук...';
+  // Для демо: генеруємо випадковий peerId (імітація рулетки)
+  fetch('https://0.peerjs.com/peers').then(r=>r.json()).then(peers=>{
+    const others = peers.filter(id=>id!==peer.id);
+    if(!others.length) { info.textContent = 'Немає співрозмовників. Спробуйте ще.'; loader.style.display='none'; startBtn.style.display=''; return; }
+    connPeerId = others[Math.floor(Math.random()*others.length)];
+    call = peer.call(connPeerId, myStream);
+    call.on('stream', stream => remoteVideo.srcObject = stream);
+    videos.style.display = '';
+    loader.style.display = 'none';
+    info.textContent = 'З’єднано!';
+  }).catch(()=>{
+    info.textContent = 'Помилка пошуку. Спробуйте ще.'; loader.style.display='none'; startBtn.style.display='';
+  });
+};
+
+start();
+</script>
 </body>
 </html>
