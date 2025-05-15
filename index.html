@@ -9,9 +9,11 @@
     .center { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; }
     .videos { display:flex; flex-direction:column; gap:10px; width:100%; max-width:400px; }
     video { width:100%; border-radius:10px; background:#333; }
-    button { padding:10px 20px; margin:20px 0; border:none; border-radius:6px; background:#00c896; color:#fff; font-size:1.1em; cursor:pointer; }
+    button { padding:10px 20px; margin:10px 0; border:none; border-radius:6px; background:#00c896; color:#fff; font-size:1.1em; cursor:pointer; transition:background 0.2s; }
+    button:hover { background:#00a67a; }
     .loader { width:48px; height:48px; border:6px solid #00c896; border-top:6px solid #fff; border-radius:50%; animation:spin 1s linear infinite; margin:24px auto; }
     @keyframes spin { 100% { transform:rotate(360deg); } }
+    .peer-id-box { background:#222; padding:8px 16px; border-radius:8px; margin:8px 0; word-break:break-all; }
     @media (max-width:600px) {
       .videos { max-width:98vw; }
     }
@@ -21,65 +23,169 @@
 <div class="center">
   <h2>P2P Відео-рулетка</h2>
   <div id="loader" class="loader"></div>
+  <div id="setup" style="display:none; text-align:center;">
+    <p>Відкрийте цю сторінку у двох браузерах/вкладках:</p>
+    <ol style="text-align:left;max-width:400px;margin:0 auto;">
+      <li>В одному натисніть <b>“Стати співрозмовником”</b> - з’явиться ваш код.</li>
+      <li>В іншому натисніть <b>“Пошук співрозмовника”</b>, вставте цей код і підключіться.</li>
+    </ol>
+    <button id="waitBtn">Стати співрозмовником</button>
+    <button id="findBtn">Пошук співрозмовника</button>
+    <div id="peerIdBox" class="peer-id-box" style="display:none;">
+      Ваш код: <span id="peerId"></span>
+      <br><small>Скопіюйте цей код і передайте співрозмовнику</small>
+    </div>
+    <div id="connectBox" style="display:none;">
+      <input id="remoteIdInput" placeholder="Введіть код співрозмовника" style="width:90%;padding:8px;border-radius:6px;border:none;margin:8px 0;">
+      <br>
+      <button id="connectBtn">Підключитись</button>
+    </div>
+    <div id="setupInfo" style="color:#f88;margin-top:8px;"></div>
+  </div>
   <div class="videos" style="display:none">
     <video id="localVideo" autoplay muted playsinline></video>
     <video id="remoteVideo" autoplay playsinline></video>
   </div>
-  <button id="startBtn" style="display:none">Пошук співрозмовника</button>
+  <button id="reloadBtn" style="display:none">Повернутись</button>
   <p id="info" style="margin-top:10px"></p>
 </div>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <script>
 const loader = document.getElementById('loader');
+const setup = document.getElementById('setup');
+const waitBtn = document.getElementById('waitBtn');
+const findBtn = document.getElementById('findBtn');
+const peerIdBox = document.getElementById('peerIdBox');
+const peerIdSpan = document.getElementById('peerId');
+const connectBox = document.getElementById('connectBox');
+const remoteIdInput = document.getElementById('remoteIdInput');
+const connectBtn = document.getElementById('connectBtn');
+const setupInfo = document.getElementById('setupInfo');
 const videos = document.querySelector('.videos');
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
-const startBtn = document.getElementById('startBtn');
+const reloadBtn = document.getElementById('reloadBtn');
 const info = document.getElementById('info');
 
-let peer, myStream, connPeerId = null, call;
+let peer, myStream, call;
 
-async function start() {
+async function getMedia() {
+  try {
+    myStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+    localVideo.srcObject = myStream;
+    return true;
+  } catch(e) {
+    info.textContent = 'Доступ до камери/мікрофона заборонено!';
+    loader.style.display = 'none';
+    return false;
+  }
+}
+
+function reset() {
+  location.reload();
+}
+
+reloadBtn.onclick = reset;
+
+function showVideos() {
+  videos.style.display = '';
+  loader.style.display = 'none';
+  setup.style.display = 'none';
+  reloadBtn.style.display = '';
+}
+
+function showSetup() {
+  loader.style.display = 'none';
+  setup.style.display = '';
+  videos.style.display = 'none';
+  reloadBtn.style.display = 'none';
+  info.textContent = '';
+}
+
+async function init() {
   loader.style.display = '';
-  info.textContent = 'Підключення до мережі...';
-  myStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
-  localVideo.srcObject = myStream;
+  info.textContent = '';
+  if (!await getMedia()) return;
+  showSetup();
+}
+
+waitBtn.onclick = () => {
+  setupInfo.textContent = '';
+  loader.style.display = '';
+  waitBtn.disabled = true;
+  findBtn.disabled = true;
   peer = new Peer();
   peer.on('open', id => {
     loader.style.display = 'none';
-    startBtn.style.display = '';
-    info.textContent = 'Готово! Натисніть, щоб знайти співрозмовника.';
+    peerIdBox.style.display = '';
+    peerIdSpan.textContent = id;
+    info.textContent = 'Очікуємо підключення співрозмовника...';
   });
   peer.on('call', incomingCall => {
     call = incomingCall;
     call.answer(myStream);
-    call.on('stream', stream => remoteVideo.srcObject = stream);
-    videos.style.display = '';
-    loader.style.display = 'none';
-    info.textContent = 'З’єднано!';
+    call.on('stream', stream => {
+      remoteVideo.srcObject = stream;
+      info.textContent = 'З’єднано!';
+      showVideos();
+    });
+    call.on('close', reset);
+    call.on('error', err => { info.textContent = 'Помилка дзвінка: ' + err; });
   });
-}
-
-startBtn.onclick = async () => {
-  startBtn.style.display = 'none';
-  loader.style.display = '';
-  info.textContent = 'Пошук...';
-  // Для демо: генеруємо випадковий peerId (імітація рулетки)
-  fetch('https://0.peerjs.com/peers').then(r=>r.json()).then(peers=>{
-    const others = peers.filter(id=>id!==peer.id);
-    if(!others.length) { info.textContent = 'Немає співрозмовників. Спробуйте ще.'; loader.style.display='none'; startBtn.style.display=''; return; }
-    connPeerId = others[Math.floor(Math.random()*others.length)];
-    call = peer.call(connPeerId, myStream);
-    call.on('stream', stream => remoteVideo.srcObject = stream);
-    videos.style.display = '';
+  peer.on('error', err => {
+    setupInfo.textContent = 'Помилка PeerJS: ' + err;
     loader.style.display = 'none';
-    info.textContent = 'З’єднано!';
-  }).catch(()=>{
-    info.textContent = 'Помилка пошуку. Спробуйте ще.'; loader.style.display='none'; startBtn.style.display='';
+    waitBtn.disabled = false;
+    findBtn.disabled = false;
   });
 };
 
-start();
+findBtn.onclick = () => {
+  setupInfo.textContent = '';
+  waitBtn.disabled = true;
+  findBtn.disabled = true;
+  connectBox.style.display = '';
+};
+
+connectBtn.onclick = () => {
+  const remoteId = remoteIdInput.value.trim();
+  if (!remoteId) {
+    setupInfo.textContent = 'Введіть код співрозмовника!';
+    return;
+  }
+  loader.style.display = '';
+  setupInfo.textContent = '';
+  peer = new Peer();
+  peer.on('open', id => {
+    call = peer.call(remoteId, myStream);
+    if (!call) {
+      loader.style.display = 'none';
+      setupInfo.textContent = 'Не вдалося підключитись. Перевірте код.';
+      waitBtn.disabled = false;
+      findBtn.disabled = false;
+      return;
+    }
+    call.on('stream', stream => {
+      remoteVideo.srcObject = stream;
+      info.textContent = 'З’єднано!';
+      showVideos();
+    });
+    call.on('close', reset);
+    call.on('error', err => {
+      info.textContent = 'Помилка дзвінка: ' + err;
+      loader.style.display = 'none';
+      reloadBtn.style.display = '';
+    });
+  });
+  peer.on('error', err => {
+    loader.style.display = 'none';
+    setupInfo.textContent = 'Помилка PeerJS: ' + err;
+    waitBtn.disabled = false;
+    findBtn.disabled = false;
+  });
+};
+
+init();
 </script>
 </body>
 </html>
