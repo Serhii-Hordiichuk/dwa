@@ -2,404 +2,128 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8">
-  <title>P2P Відео-рулетка</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P Месенджер на PeerJS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { margin:0; font-family:sans-serif; background:#181818; color:#fff; }
-    .center { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; }
-    .videos {
-      display: flex;
-      flex-direction: row;
-      gap: 10px;
-      width: 100%;
-      max-width: 400px;
-      justify-content: center;
-      align-items: flex-end;
-    }
-    .video-main video {
-      width: 260px;
-      height: 180px;
-      border-radius: 10px;
-      background: #333;
-      object-fit: cover;
-    }
-    .video-mini {
-      position: relative;
-    }
-    .video-mini video {
-      width: 80px;
-      height: 60px;
-      border-radius: 8px;
-      background: #222;
-      object-fit: cover;
-      border: 2px solid #00c896;
-    }
-    @media (max-width:600px) {
-      .videos {
-        flex-direction: column-reverse;
-        align-items: center;
-        max-width: 98vw;
-      }
-      .video-main video {
-        width: 98vw;
-        height: 200px;
-        max-width: 100%;
-      }
-      .video-mini video {
-        width: 90px;
-        height: 68px;
-        position: absolute;
-        right: 8px;
-        bottom: 8px;
-        border: 2px solid #00c896;
-        background: #222;
-      }
-      .video-mini {
-        width: 100%;
-        height: 80px;
-        position: relative;
-      }
-    }
-    button { padding:10px 20px; margin:12px 0; border:none; border-radius:6px; background:#00c896; color:#fff; font-size:1.1em; cursor:pointer; }
-    #nextBtn { background:#ff4b4b; }
-    .loader { width:48px; height:48px; border:6px solid #00c896; border-top:6px solid #fff; border-radius:50%; animation:spin 1s linear infinite; margin:24px auto; }
-    @keyframes spin { 100% { transform:rotate(360deg); } }
-    #contacts { width:100%;max-width:400px;margin-bottom:18px;display:none; }
-    #contactsList { padding:0;list-style:none;margin:0 0 8px 0;}
-    #contactsList li { padding:5px 8px; border-radius:4px; margin-bottom:2px; cursor:pointer; background:#232323;}
-    #contactsList li:hover { background:#00c896; color:#fff; }
-    #chat { width:100%;max-width:400px;display:none; }
-    #chatMessages { height:120px;overflow-y:auto;background:#222;border-radius:6px;padding:8px;font-size:0.98em;margin-bottom:8px;}
-    #chatForm { display:flex;gap:6px;}
-    #chatInput { flex:1;border-radius:6px;border:none;padding:8px;}
-    #chatForm button { background:#00c896;color:#fff;border:none;border-radius:6px;padding:8px 14px;margin:0;}
-    .secure-indicator {
-      font-size: 0.95em;
-      color: #00c896;
-      margin-bottom: 4px;
-      text-align: center;
+    body { background: #222; color: #fff; font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    .container { max-width: 400px; margin: 30px auto; background: #292929; border-radius: 10px; box-shadow: 0 0 10px #0008; padding: 20px; }
+    h2 { text-align: center; }
+    #my-id { width: 100%; margin-bottom: 10px; font-size: 1.1em; background: #333; color: #fff; border: none; text-align: center; }
+    #remote-id { width: 70%; padding: 7px; border-radius: 5px; border: none; margin-bottom: 10px; }
+    #connect { width: 27%; padding: 8px; border-radius: 5px; border: none; background: #3a8; color: #fff; font-weight: bold; cursor: pointer; }
+    #chat { height: 250px; background: #181818; border-radius: 8px; margin-bottom: 10px; overflow-y: auto; padding: 10px; font-size: 1em; }
+    .msg { margin: 5px 0; }
+    .msg.me { text-align: right; color: #8fd; }
+    .msg.peer { text-align: left; color: #fff; }
+    #message { width: 75%; padding: 7px; border-radius: 5px; border: none; }
+    #send { width: 22%; padding: 8px; border-radius: 5px; border: none; background: #3a8; color: #fff; font-weight: bold; cursor: pointer; }
+    #status { font-size: 0.95em; color: #8fd; margin-bottom: 10px; text-align: center; }
+    @media (max-width: 500px) {
+      .container { max-width: 98vw; padding: 6vw 2vw; }
+      #chat { height: 40vw; min-height: 120px; }
     }
   </style>
 </head>
 <body>
-<div class="center">
-  <h2>P2P Відео-рулетка</h2>
-  <p style="color:#ccc;max-width:350px;text-align:center;margin-bottom:18px;">
-    Анонімний відеочат для випадкових знайомств або спілкування з контактами. Натисніть кнопку або виберіть контакт!
-  </p>
-  <div id="contacts">
-    <h3 style="margin:8px 0 6px 0;font-size:1.1em;">Контакти онлайн</h3>
-    <ul id="contactsList"></ul>
-  </div>
-  <div id="loader" class="loader"></div>
-  <div class="videos" style="display:none;">
-    <div class="video-main">
-      <video id="remoteVideo" autoplay playsinline></video>
-      <div style="text-align:center;font-size:0.9em;color:#aaa;">Співрозмовник</div>
+  <div class="container">
+    <h2>P2P Месенджер</h2>
+    <input id="my-id" readonly value="Отримую ваш Peer ID...">
+    <div style="margin-bottom:10px;">
+      <input id="remote-id" placeholder="ID співрозмовника">
+      <button id="connect">Зʼєднатись</button>
     </div>
-    <div class="video-mini">
-      <video id="localVideo" autoplay muted playsinline></video>
-      <div style="text-align:center;font-size:0.9em;color:#aaa;">Ви</div>
+    <div id="status">Очікування зʼєднання...</div>
+    <div id="chat"></div>
+    <div>
+      <input id="message" placeholder="Введіть повідомлення">
+      <button id="send">Надіслати</button>
     </div>
   </div>
-  <button id="startBtn" style="display:none">Випадковий співрозмовник</button>
-  <button id="nextBtn" style="display:none;">Завершити / Далі</button>
-  <div id="chat">
-    <div class="secure-indicator" id="secureIndicator" style="display:none;">🔒 Чат зашифровано</div>
-    <div id="chatMessages"></div>
-    <form id="chatForm">
-      <input id="chatInput" autocomplete="off" placeholder="Напишіть повідомлення...">
-      <button type="submit">↑</button>
-    </form>
-  </div>
-  <p id="info" style="margin-top:10px"></p>
-</div>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<script>
-const loader = document.getElementById('loader');
-const videos = document.querySelector('.videos');
-const localVideo = document.getElementById('localVideo');
-const remoteVideo = document.getElementById('remoteVideo');
-const startBtn = document.getElementById('startBtn');
-const nextBtn = document.getElementById('nextBtn');
-const info = document.getElementById('info');
-const contacts = document.getElementById('contacts');
-const contactsList = document.getElementById('contactsList');
-const chat = document.getElementById('chat');
-const chatMessages = document.getElementById('chatMessages');
-const chatForm = document.getElementById('chatForm');
-const chatInput = document.getElementById('chatInput');
-const secureIndicator = document.getElementById('secureIndicator');
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script>
+    const myIdInput = document.getElementById('my-id');
+    const remoteIdInput = document.getElementById('remote-id');
+    const connectBtn = document.getElementById('connect');
+    const status = document.getElementById('status');
+    const chat = document.getElementById('chat');
+    const msgInput = document.getElementById('message');
+    const sendBtn = document.getElementById('send');
+    let conn = null;
+    let peer = null;
 
-let peer, myStream, connPeerId = null, call, dataConn = null;
-let contactsArr = [];
+    function addMsg(text, cls) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + cls;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
 
-// Криптографія
-let myKeyPair, sharedSecret, peerPublicKey;
-let keyExchanged = false;
+    function setStatus(text, color = '#8fd') {
+      status.textContent = text;
+      status.style.color = color;
+    }
 
-// Генерація ключів при старті
-async function generateKeys() {
-  myKeyPair = await window.crypto.subtle.generateKey(
-    { name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]
-  );
-}
+    function resetChat() {
+      chat.innerHTML = '';
+      setStatus('Очікування зʼєднання...');
+    }
 
-// Експорт публічного ключа
-async function exportPublicKey() {
-  return await window.crypto.subtle.exportKey("jwk", myKeyPair.publicKey);
-}
-
-// Імпорт публічного ключа співрозмовника
-async function importPeerPublicKey(jwk) {
-  return await window.crypto.subtle.importKey(
-    "jwk", jwk, { name: "ECDH", namedCurve: "P-256" }, true, []
-  );
-}
-
-// Вирахування спільного секрету
-async function deriveSharedSecret(peerKey) {
-  return await window.crypto.subtle.deriveKey(
-    { name: "ECDH", public: peerKey },
-    myKeyPair.privateKey,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt", "decrypt"]
-  );
-}
-
-// Шифрування повідомлення
-async function encryptMsg(plain, key) {
-  const enc = new TextEncoder();
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = await window.crypto.subtle.encrypt(
-    { name: "AES-GCM", iv }, key, enc.encode(plain)
-  );
-  return { data: Array.from(new Uint8Array(ciphertext)), iv: Array.from(iv) };
-}
-
-// Дешифрування повідомлення
-async function decryptMsg(cipher, key, iv) {
-  try {
-    const dec = new TextDecoder();
-    const data = new Uint8Array(cipher.data || cipher);
-    const ivArr = new Uint8Array(iv);
-    const plain = await window.crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: ivArr }, key, data
-    );
-    return dec.decode(plain);
-  } catch (e) { return "[Помилка дешифрування]"; }
-}
-
-// Надіслати свій публічний ключ
-async function sendPublicKey() {
-  if (dataConn && dataConn.open) {
-    const pub = await exportPublicKey();
-    dataConn.send({ type: "pubkey", key: pub });
-  }
-}
-
-// Обробка отримання ключа
-async function handlePubkey(msg) {
-  peerPublicKey = await importPeerPublicKey(msg.key);
-  sharedSecret = await deriveSharedSecret(peerPublicKey);
-  keyExchanged = true;
-  secureIndicator.style.display = '';
-  info.textContent = "Ключі обміняно! Чат зашифровано.";
-}
-
-// Скидання ключів при новому з'єднанні
-function resetKeys() {
-  sharedSecret = null;
-  peerPublicKey = null;
-  keyExchanged = false;
-  secureIndicator.style.display = 'none';
-}
-
-// --- PeerJS логіка ---
-async function start() {
-  loader.style.display = '';
-  info.textContent = 'Підключення до мережі...';
-  await generateKeys();
-  try {
-    myStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
-    localVideo.srcObject = myStream;
-  } catch(e) {
-    info.textContent = 'Доступ до камери/мікрофона заборонено!';
-    loader.style.display = 'none';
-    return;
-  }
-  peer = new Peer();
-  peer.on('open', id => {
-    loader.style.display = 'none';
-    startBtn.style.display = '';
-    info.textContent = 'Готово! Оберіть контакт або натисніть кнопку для випадкового вибору.';
-    loadContacts();
-    setInterval(loadContacts, 10000);
-  });
-
-  peer.on('call', incomingCall => {
-    endCall();
-    call = incomingCall;
-    call.answer(myStream);
-    call.on('stream', stream => remoteVideo.srcObject = stream);
-    call.on('close', handleCallClose);
-    showVideos();
-  });
-
-  peer.on('connection', conn => {
-    if (dataConn) dataConn.close();
-    dataConn = conn;
-    resetKeys();
-    dataConn.on('open', async () => {
-      await sendPublicKey();
+    // 1. Створюємо Peer
+    peer = new Peer(undefined, { debug: 2 });
+    peer.on('open', id => {
+      myIdInput.value = id;
+      setStatus('Ваш Peer ID: ' + id, '#8fd');
     });
-    dataConn.on('data', async msg => {
-      if (msg && msg.type === "pubkey") {
-        await handlePubkey(msg);
-        // Відправляємо свій ключ у відповідь, якщо ще не відправили
-        if (!keyExchanged) await sendPublicKey();
-        return;
-      }
-      if (msg && msg.type === "msg") {
-        if (sharedSecret) {
-          const plain = await decryptMsg(msg.data, sharedSecret, msg.iv);
-          addChatMessage('Він/Вона', plain);
-        } else {
-          addChatMessage('Він/Вона', "[Немає ключа!]");
-        }
-        return;
-      }
+
+    // 2. Приймаємо вхідне зʼєднання
+    peer.on('connection', c => {
+      if (conn) { c.close(); return; }
+      conn = c;
+      setStatus('Підключено до: ' + conn.peer, '#8fd');
+      setupConn();
     });
-    dataConn.on('close', () => { chat.style.display = 'none'; resetKeys(); });
-    chat.style.display = '';
-    info.textContent = 'Чат з ' + conn.peer;
-  });
-}
 
-function showVideos() {
-  videos.style.display = '';
-  loader.style.display = 'none';
-  info.textContent = 'З’єднано!';
-  nextBtn.style.display = '';
-}
+    // 3. Кнопка "Зʼєднатись"
+    connectBtn.onclick = () => {
+      if (conn) conn.close();
+      resetChat();
+      setStatus('Зʼєднання...');
+      conn = peer.connect(remoteIdInput.value.trim());
+      setupConn();
+    };
 
-function endCall() {
-  if (call) { call.close(); call = null; }
-  remoteVideo.srcObject = null;
-  videos.style.display = 'none';
-  nextBtn.style.display = 'none';
-}
+    // 4. Надсилання повідомлення
+    sendBtn.onclick = sendMsg;
+    msgInput.onkeydown = e => { if (e.key === 'Enter') sendMsg(); };
 
-function handleCallClose() {
-  info.textContent = 'Співрозмовник відключився.';
-  endCall();
-}
-
-nextBtn.onclick = () => {
-  endCall();
-  if (dataConn) { dataConn.close(); dataConn = null; chat.style.display = 'none'; resetKeys(); }
-  info.textContent = 'Розмову завершено.';
-  startBtn.style.display = '';
-};
-
-function updateContacts(peers) {
-  contactsArr = peers.filter(id => id !== peer.id);
-  contactsList.innerHTML = '';
-  contactsArr.forEach(id => {
-    const li = document.createElement('li');
-    li.textContent = id;
-    li.onclick = () => connectToPeer(id);
-    contactsList.appendChild(li);
-  });
-  contacts.style.display = contactsArr.length ? '' : 'none';
-}
-
-function loadContacts() {
-  fetch('https://0.peerjs.com/peers').then(r=>r.json()).then(peers=>{
-    updateContacts(peers);
-  }).catch(()=>{});
-}
-
-// Випадковий співрозмовник
-startBtn.onclick = async () => {
-  startBtn.style.display = 'none';
-  loader.style.display = '';
-  info.textContent = 'Пошук...';
-  fetch('https://0.peerjs.com/peers').then(r=>r.json()).then(peers=>{
-    const others = peers.filter(id=>id!==peer.id);
-    if(!others.length) {
-      info.textContent = 'Немає співрозмовників. Спробуйте ще.';
-      loader.style.display='none';
-      startBtn.style.display='';
-      return;
-    }
-    connPeerId = others[Math.floor(Math.random()*others.length)];
-    connectToPeer(connPeerId, true);
-  }).catch(()=>{
-    info.textContent = 'Помилка пошуку. Спробуйте ще.'; loader.style.display='none'; startBtn.style.display='';
-  });
-};
-
-// Підключення до вибраного peer
-function connectToPeer(id, isRandom = false) {
-  endCall();
-  if (dataConn) { dataConn.close(); dataConn = null; chat.style.display = 'none'; resetKeys(); }
-  info.textContent = isRandom ? 'З’єднання...' : 'З’єднання з ' + id + '...';
-  loader.style.display = '';
-  // Відео
-  call = peer.call(id, myStream);
-  call.on('stream', stream => remoteVideo.srcObject = stream);
-  call.on('close', handleCallClose);
-  showVideos();
-  // Чат
-  dataConn = peer.connect(id);
-  resetKeys();
-  dataConn.on('open', async () => {
-    await sendPublicKey();
-  });
-  dataConn.on('data', async msg => {
-    if (msg && msg.type === "pubkey") {
-      await handlePubkey(msg);
-      // Відправляємо свій ключ у відповідь, якщо ще не відправили
-      if (!keyExchanged) await sendPublicKey();
-      return;
-    }
-    if (msg && msg.type === "msg") {
-      if (sharedSecret) {
-        const plain = await decryptMsg(msg.data, sharedSecret, msg.iv);
-        addChatMessage('Він/Вона', plain);
-      } else {
-        addChatMessage('Він/Вона', "[Немає ключа!]");
+    function sendMsg() {
+      const text = msgInput.value.trim();
+      if (text && conn && conn.open) {
+        conn.send(text);
+        addMsg('Ви: ' + text, 'me');
+        msgInput.value = '';
       }
-      return;
     }
-  });
-  dataConn.on('close', () => { chat.style.display = 'none'; resetKeys(); });
-  chat.style.display = '';
-  info.textContent = 'Чат з ' + id;
-}
 
-// Чат
-chatForm.onsubmit = async e => {
-  e.preventDefault();
-  if (!chatInput.value || !dataConn || dataConn.open === false || !sharedSecret) return;
-  addChatMessage('Ви', chatInput.value);
-  const encrypted = await encryptMsg(chatInput.value, sharedSecret);
-  dataConn.send({ type: "msg", data: encrypted.data, iv: encrypted.iv });
-  chatInput.value = '';
-};
-function addChatMessage(from, text) {
-  chatMessages.innerHTML += `<div><b>${from}:</b> ${escapeHtml(text)}</div>`;
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-function escapeHtml(text) {
-  return text.replace(/[<>&"]/g, c => ({
-    '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'
-  }[c]));
-}
-
-start();
-</script>
+    function setupConn() {
+      if (!conn) return;
+      conn.on('open', () => {
+        setStatus('Підключено до: ' + conn.peer, '#8fd');
+        addMsg('Зʼєднання встановлено!', 'peer');
+      });
+      conn.on('data', data => {
+        addMsg('Співрозмовник: ' + data, 'peer');
+      });
+      conn.on('close', () => {
+        setStatus('Зʼєднання закрито', 'orange');
+        addMsg('Зʼєднання закрито', 'peer');
+        conn = null;
+      });
+      conn.on('error', err => {
+        setStatus('Помилка: ' + err, 'red');
+      });
+    }
+  </script>
 </body>
 </html>
