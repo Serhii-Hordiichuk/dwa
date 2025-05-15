@@ -2,199 +2,270 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8">
-  <title>P2P Месенджер з QR-кодом (PeerJS)</title>
+  <title>Децентралізований Месенджер</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Font Awesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
-    body { background: #222; color: #fff; font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    .container { max-width: 400px; margin: 30px auto; background: #292929; border-radius: 10px; box-shadow: 0 0 10px #0008; padding: 20px; }
-    h2 { text-align: center; }
-    #my-id { width: 100%; margin-bottom: 10px; font-size: 1.1em; background: #333; color: #fff; border: none; text-align: center; }
-    #remote-id { width: 70%; padding: 7px; border-radius: 5px; border: none; margin-bottom: 10px; }
-    #connect { width: 27%; padding: 8px; border-radius: 5px; border: none; background: #3a8; color: #fff; font-weight: bold; cursor: pointer; }
-    #chat { height: 250px; background: #181818; border-radius: 8px; margin-bottom: 10px; overflow-y: auto; padding: 10px; font-size: 1em; }
-    .msg { margin: 5px 0; }
-    .msg.me { text-align: right; color: #8fd; }
-    .msg.peer { text-align: left; color: #fff; }
-    #message { width: 75%; padding: 7px; border-radius: 5px; border: none; }
-    #send { width: 22%; padding: 8px; border-radius: 5px; border: none; background: #3a8; color: #fff; font-weight: bold; cursor: pointer; }
-    #status { font-size: 0.95em; color: #8fd; margin-bottom: 10px; text-align: center; }
-    #qrcode { margin: 0 auto 15px auto; display: flex; justify-content: center; }
-    #scan-btn { padding: 8px 12px; border-radius: 5px; border: none; background: #3a8; color: #fff; font-weight: bold; cursor: pointer; margin-bottom:10px; }
-    #video-preview { display:none; width:100%; max-width:300px; margin:10px auto; border-radius:10px; }
-    @media (max-width: 500px) {
-      .container { max-width: 98vw; padding: 6vw 2vw; }
-      #chat { height: 40vw; min-height: 120px; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f6f7fb;
+      margin: 0;
+      color: #222;
+    }
+    .container {
+      max-width: 400px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px #0001;
+      padding: 2em 1.5em;
+    }
+    h1, h2 {
+      text-align: center;
+      margin-bottom: .5em;
+    }
+    button {
+      background: #2d7ff9;
+      color: #fff;
+      border: none;
+      padding: 1em 2em;
+      border-radius: 6px;
+      font-size: 1.1em;
+      cursor: pointer;
+      transition: background .2s;
+      display: flex;
+      align-items: center;
+      gap: .5em;
+      margin: .5em auto;
+      width: 100%;
+      justify-content: center;
+    }
+    button:hover, button:focus {
+      background: #125fd7;
+      outline: none;
+    }
+    #chat, #connect, #qr-scan { display: none; }
+    #messages {
+      min-height: 100px;
+      border: 1px solid #eee;
+      padding: 1em;
+      margin-bottom: 1em;
+      background: #fafbfc;
+      border-radius: 6px;
+      font-size: 1em;
+      overflow-y: auto;
+      max-height: 250px;
+    }
+    #qrcode { margin: 1em auto; display: flex; justify-content: center; }
+    input, textarea {
+      width: 100%;
+      margin: .5em 0;
+      padding: .7em;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+      font-size: 1em;
+      box-sizing: border-box;
+    }
+    .link-box {
+      background: #f2f6ff;
+      border-radius: 6px;
+      padding: .7em;
+      word-break: break-all;
+      margin-bottom: 1em;
+      font-size: .97em;
+      display: flex;
+      align-items: center;
+      gap: .5em;
+    }
+    .qr-btns {
+      display: flex;
+      gap: 1em;
+      justify-content: center;
+      margin: 1em 0;
+      flex-wrap: wrap;
+    }
+    #html5-qrcode { width: 100% !important; }
+    @media (max-width: 600px) {
+      .container { max-width: 98vw; padding: 1em .4em; }
+      h1, h2 { font-size: 1.2em; }
+      button { font-size: 1em; padding: .8em 1em; }
+      #messages { font-size: .96em; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>P2P Месенджер</h2>
-    <input id="my-id" readonly value="Отримую ваш Peer ID...">
-    <div id="qrcode"></div>
-    <button id="scan-btn">Сканувати QR співрозмовника</button>
-    <video id="video-preview" autoplay></video>
-    <div style="margin-bottom:10px;">
-      <input id="remote-id" placeholder="ID співрозмовника">
-      <button id="connect">Зʼєднатись</button>
+  <div class="container" id="main">
+    <h1><i class="fa-solid fa-comments"></i> Децентралізований Месенджер</h1>
+    <p>Приватний обмін повідомленнями напряму - без серверів, без реєстрації.<br>Ваші розмови залишаються лише між вами!</p>
+    <button id="startBtn"><i class="fa-solid fa-door-open"></i> Увійти в проєкт</button>
+  </div>
+  <div class="container" id="connect">
+    <h2><i class="fa-solid fa-link"></i> Підключення</h2>
+    <div id="step1">
+      <p>1. Надішліть це посилання або QR-код співрозмовнику:</p>
+      <div class="link-box" id="myLink"><i class="fa-solid fa-link"></i></div>
+      <div id="qrcode"></div>
+      <div class="qr-btns">
+        <button id="scanBtn"><i class="fa-solid fa-qrcode"></i> Сканувати QR</button>
+        <button id="pasteBtn"><i class="fa-solid fa-paste"></i> Ввести посилання</button>
+      </div>
     </div>
-    <div id="status">Очікування зʼєднання...</div>
-    <div id="chat"></div>
-    <div>
-      <input id="message" placeholder="Введіть повідомлення">
-      <button id="send">Надіслати</button>
+    <div id="step2" style="display:none;">
+      <p>Вставте отримане посилання:</p>
+      <input id="remoteOffer" placeholder="Вставте посилання співрозмовника">
+      <button id="connectBtn"><i class="fa-solid fa-plug"></i> Підключитись</button>
+    </div>
+    <div id="qr-scan">
+      <p>Наведіть камеру на QR-код співрозмовника:</p>
+      <div id="reader" style="width:100%"></div>
+      <button id="closeScanBtn"><i class="fa-solid fa-xmark"></i> Закрити</button>
     </div>
   </div>
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <div class="container" id="chat">
+    <h2><i class="fa-solid fa-comment-dots"></i> Чат</h2>
+    <div id="messages"></div>
+    <textarea id="msgInput" placeholder="Введіть повідомлення..."></textarea>
+    <button id="sendBtn"><i class="fa-solid fa-paper-plane"></i> Надіслати</button>
+  </div>
+  <!-- QRCode.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <!-- jsQR для сканування QR-кодів з відео -->
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <!-- html5-qrcode -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <script>
-    const myIdInput = document.getElementById('my-id');
-    const remoteIdInput = document.getElementById('remote-id');
-    const connectBtn = document.getElementById('connect');
-    const status = document.getElementById('status');
+    // --- WebRTC P2P logic ---
+    let pc, channel, isInitiator = false;
+    // --- UI elements ---
+    const main = document.getElementById('main');
+    const connect = document.getElementById('connect');
     const chat = document.getElementById('chat');
-    const msgInput = document.getElementById('message');
-    const sendBtn = document.getElementById('send');
-    const qrcodeDiv = document.getElementById('qrcode');
-    const scanBtn = document.getElementById('scan-btn');
-    const videoPreview = document.getElementById('video-preview');
-    let conn = null;
-    let peer = null;
-    let qr = null;
-    let scanning = false;
-    let localStream = null;
-
-    function addMsg(text, cls) {
-      const div = document.createElement('div');
-      div.className = 'msg ' + cls;
-      div.textContent = text;
-      chat.appendChild(div);
-      chat.scrollTop = chat.scrollHeight;
-    }
-
-    function setStatus(text, color = '#8fd') {
-      status.textContent = text;
-      status.style.color = color;
-    }
-
-    function resetChat() {
-      chat.innerHTML = '';
-      setStatus('Очікування зʼєднання...');
-    }
-
-    // PeerJS ініціалізація
-    peer = new Peer(undefined, { debug: 2 });
-    peer.on('open', id => {
-      myIdInput.value = id;
-      setStatus('Ваш Peer ID: ' + id, '#8fd');
-      // Генеруємо QR-код
-      if (qr) qrcodeDiv.innerHTML = '';
-      qr = new QRCode(qrcodeDiv, {
-        text: id,
-        width: 180,
-        height: 180,
-        colorDark : "#000000",
-        colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.H
-      });
-    });
-
-    peer.on('connection', c => {
-      if (conn) { c.close(); return; }
-      conn = c;
-      setStatus('Підключено до: ' + conn.peer, '#8fd');
-      setupConn();
-    });
-
-    connectBtn.onclick = () => {
-      if (conn) conn.close();
-      resetChat();
-      setStatus('Зʼєднання...');
-      conn = peer.connect(remoteIdInput.value.trim());
-      setupConn();
-    };
-
-    sendBtn.onclick = sendMsg;
-    msgInput.onkeydown = e => { if (e.key === 'Enter') sendMsg(); };
-
-    function sendMsg() {
-      const text = msgInput.value.trim();
-      if (text && conn && conn.open) {
-        conn.send(text);
-        addMsg('Ви: ' + text, 'me');
-        msgInput.value = '';
-      }
-    }
-
-    function setupConn() {
-      if (!conn) return;
-      conn.on('open', () => {
-        setStatus('Підключено до: ' + conn.peer, '#8fd');
-        addMsg('Зʼєднання встановлено!', 'peer');
-      });
-      conn.on('data', data => {
-        addMsg('Співрозмовник: ' + data, 'peer');
-      });
-      conn.on('close', () => {
-        setStatus('Зʼєднання закрито', 'orange');
-        addMsg('Зʼєднання закрито', 'peer');
-        conn = null;
-      });
-      conn.on('error', err => {
-        setStatus('Помилка: ' + err, 'red');
-      });
-    }
-
-    // --- QR-сканер ---
-    scanBtn.onclick = async () => {
-      if (scanning) return;
-      scanning = true;
-      scanBtn.disabled = true;
-      setStatus('Відкриття камери для сканування QR...', '#8fd');
-      videoPreview.style.display = 'block';
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        videoPreview.srcObject = localStream;
-        requestAnimationFrame(tick);
-      } catch (e) {
-        setStatus('Не вдалося отримати доступ до камери', 'red');
-        videoPreview.style.display = 'none';
-        scanBtn.disabled = false;
-        scanning = false;
-      }
-    };
-
-    function tick() {
-      if (!scanning) return;
-      if (videoPreview.readyState === videoPreview.HAVE_ENOUGH_DATA) {
-        const canvas = document.createElement('canvas');
-        canvas.width = videoPreview.videoWidth;
-        canvas.height = videoPreview.videoHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, canvas.width, canvas.height);
-        if (code) {
-          remoteIdInput.value = code.data;
-          setStatus('Peer ID знайдено: ' + code.data, '#8fd');
-          stopScan();
-          return;
+    const startBtn = document.getElementById('startBtn');
+    const myLink = document.getElementById('myLink');
+    const qrcode = document.getElementById('qrcode');
+    const scanBtn = document.getElementById('scanBtn');
+    const pasteBtn = document.getElementById('pasteBtn');
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const remoteOffer = document.getElementById('remoteOffer');
+    const connectBtn = document.getElementById('connectBtn');
+    const messages = document.getElementById('messages');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const qrScan = document.getElementById('qr-scan');
+    const closeScanBtn = document.getElementById('closeScanBtn');
+    // --- WebRTC functions ---
+    async function createConnection() {
+      pc = new RTCPeerConnection();
+      channel = pc.createDataChannel("chat");
+      channel.onopen = () => showChat();
+      channel.onmessage = e => addMsg("Він/вона", e.data);
+      pc.onicecandidate = e => {
+        if (!e.candidate) {
+          const offer = btoa(JSON.stringify(pc.localDescription));
+          showLink(window.location.origin + window.location.pathname + "#"+offer);
         }
-      }
-      requestAnimationFrame(tick);
+      };
+      isInitiator = true;
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
     }
-
-    function stopScan() {
-      scanning = false;
-      scanBtn.disabled = false;
-      videoPreview.style.display = 'none';
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-      }
+    async function joinConnection(offerStr) {
+      pc = new RTCPeerConnection();
+      pc.ondatachannel = e => {
+        channel = e.channel;
+        channel.onopen = () => showChat();
+        channel.onmessage = e => addMsg("Він/вона", e.data);
+      };
+      pc.onicecandidate = e => {
+        if (!e.candidate) {
+          const answer = btoa(JSON.stringify(pc.localDescription));
+          addMsg("Система", "Скопіюйте це посилання та надішліть співрозмовнику:");
+          addMsg("Система", window.location.origin + window.location.pathname + "#" + answer);
+        }
+      };
+      const offer = JSON.parse(atob(offerStr));
+      await pc.setRemoteDescription(offer);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
     }
+    async function acceptAnswer(answerStr) {
+      const answer = JSON.parse(atob(answerStr));
+      await pc.setRemoteDescription(answer);
+    }
+    // --- UI logic ---
+    function showLink(link) {
+      myLink.innerHTML = `<i class="fa-solid fa-link"></i> ${link}`;
+      qrcode.innerHTML = "";
+      new QRCode(qrcode, { text: link, width: 180, height: 180 });
+    }
+    function showChat() {
+      connect.style.display = "none";
+      chat.style.display = "block";
+      addMsg("Система", "З'єднання встановлено! Можна спілкуватися.");
+    }
+    function addMsg(who, text) {
+      messages.innerHTML += `<b>${who}:</b> ${text}<br>`;
+      messages.scrollTop = messages.scrollHeight;
+    }
+    // --- Event handlers ---
+    startBtn.onclick = async () => {
+      main.style.display = "none";
+      connect.style.display = "block";
+      await createConnection();
+    };
+    scanBtn.onclick = () => {
+      step1.style.display = "none";
+      qrScan.style.display = "block";
+      startQrScan();
+    };
+    pasteBtn.onclick = () => {
+      step1.style.display = "none";
+      step2.style.display = "block";
+    };
+    connectBtn.onclick = async () => {
+      const offerStr = remoteOffer.value.trim().split("#")[1];
+      if (!offerStr) return alert("Введіть коректне посилання!");
+      await joinConnection(offerStr);
+      connect.style.display = "none";
+      chat.style.display = "block";
+    };
+    sendBtn.onclick = () => {
+      const msg = msgInput.value.trim();
+      if (!msg || !channel || channel.readyState !== "open") return;
+      channel.send(msg);
+      addMsg("Ви", msg);
+      msgInput.value = "";
+    };
+    // --- QR Scan logic ---
+    let qrScanner;
+    function startQrScan() {
+      qrScanner = new Html5Qrcode("reader");
+      qrScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 200 },
+        qrCodeMessage => {
+          qrScanner.stop();
+          qrScan.style.display = "none";
+          step2.style.display = "block";
+          remoteOffer.value = qrCodeMessage;
+        }
+      );
+    }
+    closeScanBtn.onclick = () => {
+      if (qrScanner) qrScanner.stop();
+      qrScan.style.display = "none";
+      step1.style.display = "block";
+    };
+    // --- Handle incoming offer/answer via link ---
+    window.onload = async () => {
+      if (window.location.hash.length > 1) {
+        main.style.display = "none";
+        connect.style.display = "block";
+        step1.style.display = "none";
+        step2.style.display = "block";
+        remoteOffer.value = window.location.href;
+      }
+    };
   </script>
 </body>
 </html>
